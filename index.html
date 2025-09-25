@@ -1,19 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>My Python WebApp</title>
+    <meta charset="UTF-8">
+    <title>CSV → ICS Converter</title>
 </head>
 <body>
-  <h1>Python Script Running on GitHub Pages 🚀</h1>
+    <h1>CSV → ICS Converter</h1>
 
-  <input type="text" id="userInput" placeholder="Enter a number">
-  <button onclick="runPython()">Run Python</button>
+    <input type="file" id="csvInput" accept=".csv">
+    <button onclick="runPython()">Convert</button>
 
-  <p>Result: <span id="output"></span></p>
+    <p id="status"></p>
+    <a id="downloadLink" style="display:none">Download ICS</a>
 
-  <!-- Load Pyodide -->
-  <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
-  <script src="main.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+    <script src="main.js"></script>
 </body>
 </html>
