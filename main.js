@@ -5,9 +5,13 @@ async function initPyodide() {
     await pyodide.loadPackage("pandas");
     await pyodide.loadPackage("micropip");
     await pyodide.runPythonAsync(`
-import micropip
-await micropip.install("ics")
-`);
+    import micropip
+    await micropip.install("ics")
+    `);
+    await pyodide.runPythonAsync(`
+    import micropip
+    await micropip.install("pytz")
+    `);
 }
 initPyodide();
 
@@ -33,10 +37,13 @@ async function runPython() {
 import pandas as pd
 import re
 from ics import Calendar, Event
+import pytz
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
-LOCAL_TZ = ZoneInfo("America/New_York")
+LOCAL_TZ = pytz.timezone("America/New_York")
+
+dt = datetime(2025, 9, 25, 12, 0)
+dt = LOCAL_TZ.localize(dt)
 
 input_file = "${file.name}"
 output_file = input_file.replace(".csv", ".ics")
