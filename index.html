@@ -6,35 +6,38 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 2rem;
             line-height: 1.5;
+            margin: 20px;
         }
-        h1 { color: #2c3e50; }
+        h1 {
+            margin-bottom: 10px;
+        }
+        h2 {
+            margin-top: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 5px;
+        }
+        ol {
+            margin-left: 20px;
+        }
+        ul {
+            margin-left: 40px;
+        }
         .instructions {
-            background: #f9f9f9;
+            max-width: 800px;
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f8f8;
             border: 1px solid #ccc;
-            padding: 1rem;
             border-radius: 8px;
-            margin-bottom: 2rem;
         }
-        ol { padding-left: 1.2rem; }
-        li { margin-bottom: 0.5rem; }
+        .troubleshooting {
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
     <h1>CSV → ICS Converter</h1>
-
-    <div class="instructions">
-        <h2>Instructions</h2>
-        <ol>
-            <li>Save your Excel file as a <strong>CSV file</strong>.</li>
-            <li>Check that the <strong>Date</strong> column uses <code>MM/DD/YYYY</code> format.</li>
-            <li>Ensure the <strong>Time</strong> column uses a format like <code>9 AM - 5 PM</code>.</li>
-            <li>Click <strong>Choose File</strong> and choose your file.</li>
-            <li>Click <strong>Convert</strong> to generate an <code>.ics</code> calendar file.</li>
-            <li>Once complete, click the <strong>Download ICS</strong> link to save your calendar.</li>
-        </ol>
-    </div>
 
     <input type="file" id="csvInput" accept=".csv">
     <button onclick="runPython()">Convert</button>
@@ -42,8 +45,66 @@
     <p id="status"></p>
     <a id="downloadLink" style="display:none">Download ICS</a>
 
+    <div class="instructions">
+        <h2>Calendar Converter - Instructions</h2>
+        <p>This tool converts a CSV file into a calendar (.ICS) file for use in Outlook.</p>
+
+        <p><strong>Please follow these steps:</strong></p>
+        <ol>
+            <li><strong>Save your Excel file as a CSV file</strong>
+                <ul>
+                    <li>Open your Excel schedule file</li>
+                    <li>Go to File &gt; Save As</li>
+                    <li>Choose "CSV (Comma delimited) (*.csv)" as the file type</li>
+                    <li>Save it somewhere easy to find (e.g., Desktop or Documents)</li>
+                    <li>It could help to close and re-open the file after saving it as CSV.</li>
+                </ul>
+            </li>
+            <li><strong>Verify the CSV file</strong>
+                <ul>
+                    <li>Make sure the "Date" column uses MONTH/DAY/YEAR format (e.g., 09/19/2025)</li>
+                    <li>Make sure the "Time" column is properly formatted (examples):
+                        <ul>
+                            <li>9 AM - 5 PM</li>
+                            <li>10 PM - 6 AM</li>
+                            <li>8:30 AM - 12 PM</li>
+                        </ul>
+                    </li>
+                    <li>Correct any mistakes before running the converter.</li>
+                    <li>Some logic is included to fix minor typos, but spot checks are recommended.</li>
+                </ul>
+            </li>
+            <li><strong>Press the "Choose File" Button</strong>
+                <ul>
+                    <li>A file explorer window should open automatically</li>
+                </ul>
+            </li>
+            <li><strong>Select your CSV file</strong>
+                <ul>
+                    <li>Navigate to where you saved the CSV</li>
+                    <li>Highlight the file and click "Open"</li>
+                </ul>
+            </li>
+            <li><strong>Output file</strong>
+                <ul>
+                    <li>The website will display "Conversion Complete!" if an ICS file was successfully created.</li>
+                    <li>Click "Download ICS File" to download the ICS file.</li>
+                    <li>The ICS file can be imported into Outlook, Google Calendar, or other calendar applications.</li>
+                </ul>
+            </li>
+        </ol>
+
+        <div class="troubleshooting">
+            <h3>Troubleshooting:</h3>
+            <ul>
+                <li>If you see an error message, check that your CSV file has valid Date and Time columns.</li>
+                <li>Make sure AM/PM formatting is included where needed.</li>
+                <li>If incorrect information shows up in Outlook or if a blank Calendar is uploaded, contact Kevin.</li>
+            </ul>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="main.js"></script>
 </body>
 </html>
-
