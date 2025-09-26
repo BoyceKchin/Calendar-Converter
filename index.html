@@ -3,9 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <title>CSV → ICS Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+            line-height: 1.5;
+        }
+        h1 { color: #2c3e50; }
+        .instructions {
+            background: #f9f9f9;
+            border: 1px solid #ccc;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+        ol { padding-left: 1.2rem; }
+        li { margin-bottom: 0.5rem; }
+    </style>
 </head>
 <body>
     <h1>CSV → ICS Converter</h1>
+
+    <div class="instructions">
+        <h2>Instructions</h2>
+        <ol>
+            <li>Save your Excel file as a <strong>CSV file</strong>.</li>
+            <li>Check that the <strong>Date</strong> column uses <code>MM/DD/YYYY</code> format.</li>
+            <li>Ensure the <strong>Time</strong> column uses a format like <code>9 AM - 5 PM</code>.</li>
+            <li>Click <strong>Select CSV File</strong> and choose your file.</li>
+            <li>Click <strong>Convert</strong> to generate an <code>.ics</code> calendar file.</li>
+            <li>Once complete, click the <strong>Download ICS</strong> link to save your calendar.</li>
+        </ol>
+    </div>
 
     <input type="file" id="csvInput" accept=".csv">
     <button onclick="runPython()">Convert</button>
