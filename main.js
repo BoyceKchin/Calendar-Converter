@@ -1,30 +1,38 @@
 let pyodide;
 
-async function initPyodideEnv() {
-    // Initialize Pyodide and required packages
+async function initPyodide() {
     pyodide = await loadPyodide();
     await pyodide.loadPackage("pandas");
     await pyodide.loadPackage("micropip");
-
-    // Install PyPI packages
     await pyodide.runPythonAsync(`
-        import micropip
-        await micropip.install(["ics", "pytz", "openpyxl"])
+    import micropip
+    await micropip.install("ics")
     `);
-    console.log("✅ Pyodide ready with pandas, ics, pytz, openpyxl");
+    await pyodide.runPythonAsync(`
+    import micropip
+    await micropip.install("pytz")
+    `);
 }
+initPyodide();
 
-async function runPython(file) {
-    if (!file) throw new Error("No Excel file provided");
+async function runPython() {
+    const fileInput = document.getElementById("csvInput");
+    const status = document.getElementById("status");
+    const downloadLink = document.getElementById("downloadLink");
 
-    // Read the Excel file as binary
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
+    if (!fileInput.files.length) {
+        alert("Please select a CSV file!");
+        return;
+    }
 
-    // Write it into Pyodide’s virtual filesystem
-    pyodide.FS.writeFile(file.name, uint8Array);
+    const file = fileInput.files[0];
+    const text = await file.text();
 
-    // Main Python script (Excel → ICS)
+    // Write the file to Pyodide virtual FS
+    pyodide.FS.writeFile(file.name, text);
+
+    status.innerText = "Processing...";
+
     const pyCode = `
 import pandas as pd
 import re
@@ -34,42 +42,32 @@ from datetime import datetime
 
 LOCAL_TZ = pytz.timezone("America/New_York")
 
-input_file = "${file.name}"
-output_file = input_file.replace(".xlsx", ".ics")
+dt = datetime(2025, 9, 25, 12, 0)
+dt = LOCAL_TZ.localize(dt)
 
-# Read Excel file (skip first 3 rows)
-df = pd.read_excel(input_file, skiprows=3, engine="openpyxl")
+input_file = "${file.name}"
+output_file = input_file.replace(".csv", ".ics")
+
+df = pd.read_csv(input_file, skiprows=3)
 df.columns = df.columns.str.strip()
 
-# Drop unwanted columns
 cols_to_drop = ["B","D","E","F","G","K","M","N","O","P","Q","R"]
 drop_cols = [df.columns[ord(c)-ord("A")] for c in cols_to_drop if ord(c)-ord("A")<len(df.columns)]
 df = df.drop(columns=drop_cols, errors="ignore")
 
-# Rename column L → Description if present
-if len(df.columns) >= 6:
+if len(df.columns) >=6:
     df = df.rename(columns={df.columns[5]: "Description"})
 
-# Combine Work Activity and Work Location
 if {"Work Activity", "Work Location"}.issubset(df.columns):
-    df["Work Activity"] = (
-        df["Work Activity"].fillna("").astype(str).str.strip() + " " +
-        df["Work Location"].fillna("").astype(str).str.strip()
-    ).str.strip()
+    df["Work Activity"] = (df["Work Activity"].fillna("").astype(str).str.strip() + " " + df["Work Location"].fillna("").astype(str).str.strip()).str.strip()
 
-# Combine Meeting/Work Locations
 if {"Work Location", "Meeting Location"}.issubset(df.columns):
-    df["Location"] = (
-        df["Work Location"].fillna("").astype(str).str.strip() + " " +
-        df["Meeting Location"].fillna("").astype(str).str.strip()
-    ).str.strip()
-    df = df.drop(columns=["Work Location","Meeting Location"], errors="ignore")
+    df["Location"] = (df["Work Location"].fillna("").astype(str).str.strip() + " " + df["Meeting Location"].fillna("").astype(str).str.strip()).str.strip()
+    df = df.drop(columns=["Work Location","Meeting Location"])
 
-# Fill missing dates
 if "Date" in df.columns:
     df["Date"] = df["Date"].ffill()
 
-# Fix and extract time ranges
 if "Time" in df.columns:
     df = df[df["Time"].notna() & (df["Time"].astype(str).str.strip()!="")]
 
@@ -95,7 +93,6 @@ if "Time" in df.columns:
     df["End Time"] = df["Time"].str.extract(r"-\\s*(\\d+\\s*(?:AM|PM))$", expand=False).fillna("").str.strip()
     df = df.drop(columns=["Date","Time"], errors="ignore")
 
-# Build calendar
 cal = Calendar()
 for _, row in df.iterrows():
     event = Event()
@@ -115,7 +112,7 @@ for _, row in df.iterrows():
             end_dt = end_dt.replace(tzinfo=LOCAL_TZ)
         event.begin = start_dt
         event.end = end_dt
-    except Exception:
+    except:
         continue
     cal.events.add(event)
 
@@ -124,3 +121,21 @@ with open(output_file, "w", encoding="utf-8") as f:
 
 output_file
 `;
+
+    try {
+        const outputFile = await pyodide.runPythonAsync(pyCode);
+        // Read the ICS file from Pyodide FS
+        const icsData = pyodide.FS.readFile(outputFile, { encoding: "utf8" });
+
+        // Create a downloadable Blob
+        const blob = new Blob([icsData], { type: "text/calendar" });
+        downloadLink.href = URL.createObjectURL(blob);
+        downloadLink.download = outputFile;
+        downloadLink.style.display = "inline";
+        downloadLink.innerText = "Download ICS File";
+
+        status.innerText = "Conversion complete!";
+    } catch (err) {
+        status.innerText = "Error: " + err;
+    }
+}
