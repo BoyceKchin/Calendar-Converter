@@ -5,31 +5,29 @@ async function initPyodide() {
     await pyodide.loadPackage("pandas");
     await pyodide.loadPackage("micropip");
     await pyodide.runPythonAsync(`
-    import micropip
-    await micropip.install("ics")
-    `);
-    await pyodide.runPythonAsync(`
-    import micropip
-    await micropip.install("pytz")
-    `);
+import micropip
+await micropip.install("ics")
+await micropip.install("pytz")
+await micropip.install("openpyxl")
+`);
 }
 initPyodide();
 
 async function runPython() {
-    const fileInput = document.getElementById("csvInput");
+    const fileInput = document.getElementById("excelInput");
     const status = document.getElementById("status");
     const downloadLink = document.getElementById("downloadLink");
 
     if (!fileInput.files.length) {
-        alert("Please select a CSV file!");
+        alert("Please select an Excel file!");
         return;
     }
 
     const file = fileInput.files[0];
-    const text = await file.text();
+    const arrayBuffer = await file.arrayBuffer();
 
     // Write the file to Pyodide virtual FS
-    pyodide.FS.writeFile(file.name, text);
+    pyodide.FS.writeFile(file.name, new Uint8Array(arrayBuffer));
 
     status.innerText = "Processing...";
 
@@ -42,13 +40,11 @@ from datetime import datetime
 
 LOCAL_TZ = pytz.timezone("America/New_York")
 
-dt = datetime(2025, 9, 25, 12, 0)
-dt = LOCAL_TZ.localize(dt)
-
 input_file = "${file.name}"
-output_file = input_file.replace(".csv", ".ics")
+output_file = input_file.replace(".xlsx", ".ics")
 
-df = pd.read_csv(input_file, skiprows=3)
+# Read Excel instead of CSV
+df = pd.read_excel(input_file, skiprows=3)
 df.columns = df.columns.str.strip()
 
 cols_to_drop = ["B","D","E","F","G","K","M","N","O","P","Q","R"]
@@ -124,10 +120,8 @@ output_file
 
     try {
         const outputFile = await pyodide.runPythonAsync(pyCode);
-        // Read the ICS file from Pyodide FS
         const icsData = pyodide.FS.readFile(outputFile, { encoding: "utf8" });
 
-        // Create a downloadable Blob
         const blob = new Blob([icsData], { type: "text/calendar" });
         downloadLink.href = URL.createObjectURL(blob);
         downloadLink.download = outputFile;
