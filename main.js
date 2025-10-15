@@ -1,15 +1,15 @@
-<script type="module">
 let pyodide;
 
 async function initPyodide() {
     pyodide = await loadPyodide();
     await pyodide.loadPackage("pandas");
-    await pyodide.loadPackage("openpyxl"); // Needed for Excel
     await pyodide.loadPackage("micropip");
+
     await pyodide.runPythonAsync(`
         import micropip
         await micropip.install("ics")
         await micropip.install("pytz")
+        await micropip.install("openpyxl")
     `);
 }
 initPyodide();
@@ -20,16 +20,15 @@ async function runPython() {
     const downloadLink = document.getElementById("downloadLink");
 
     if (!fileInput.files.length) {
-        alert("Please select an Excel file!");
+        alert("Please select an Excel (.xlsx) file!");
         return;
     }
 
     const file = fileInput.files[0];
     const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
 
-    // Write Excel binary file to Pyodide FS
-    pyodide.FS.writeFile(file.name, uint8Array);
+    // Write Excel file to Pyodide virtual FS as bytes
+    pyodide.FS.writeFile(file.name, new Uint8Array(arrayBuffer));
 
     status.innerText = "Processing...";
 
@@ -43,43 +42,43 @@ from datetime import datetime
 LOCAL_TZ = pytz.timezone("America/New_York")
 
 input_file = "${file.name}"
-output_file = input_file.replace(".xlsx", ".ics").replace(".xls", ".ics")
+output_file = input_file.replace(".xlsx", ".ics")
 
-# Read Excel file (keep skiprows=3)
-df = pd.read_excel(input_file, engine="openpyxl", skiprows=3)
+# Read Excel file (first sheet)
+df = pd.read_excel(input_file, skiprows=3, engine="openpyxl")
 df.columns = df.columns.str.strip()
 
-# Drop unnecessary columns
+# Drop specific columns by letter
 cols_to_drop = ["B","D","E","F","G","K","M","N","O","P","Q","R"]
 drop_cols = [df.columns[ord(c)-ord("A")] for c in cols_to_drop if ord(c)-ord("A")<len(df.columns)]
 df = df.drop(columns=drop_cols, errors="ignore")
 
-# Rename column L to Description (6th column after skipping)
+# Rename column L → Description (if exists)
 if len(df.columns) >=6:
     df = df.rename(columns={df.columns[5]: "Description"})
 
-# Merge Work Activity + Work Location
+# Combine Work Activity and Work Location
 if {"Work Activity", "Work Location"}.issubset(df.columns):
     df["Work Activity"] = (df["Work Activity"].fillna("").astype(str).str.strip() + " " + df["Work Location"].fillna("").astype(str).str.strip()).str.strip()
 
-# Merge Work Location + Meeting Location into Location
+# Combine Work/Meeting Location
 if {"Work Location", "Meeting Location"}.issubset(df.columns):
     df["Location"] = (df["Work Location"].fillna("").astype(str).str.strip() + " " + df["Meeting Location"].fillna("").astype(str).str.strip()).str.strip()
     df = df.drop(columns=["Work Location","Meeting Location"])
 
-# Fill down Date column
+# Fill missing dates
 if "Date" in df.columns:
     df["Date"] = df["Date"].ffill()
 
-# Fix and extract time ranges
+# Process Time column
 if "Time" in df.columns:
     df = df[df["Time"].notna() & (df["Time"].astype(str).str.strip()!="")]
 
     def fix_time_format(t):
         t=str(t).strip()
         t = re.sub(r"(\\d)(am|pm)", r"\\1 \\2", t, flags=re.IGNORECASE)
-        t = re.sub(r"[–—]","-",t)
-        t = re.sub(r"\\s+"," ",t)
+        t = re.sub(r"[–—]", "-", t)
+        t = re.sub(r"\\s+", " ", t)
         match = re.match(r"^(\\d+)\\s*-\\s*(\\d+)\\s*(AM|PM)$", t, flags=re.IGNORECASE)
         if match:
             start,end,meridian = match.groups()
@@ -97,7 +96,7 @@ if "Time" in df.columns:
     df["End Time"] = df["Time"].str.extract(r"-\\s*(\\d+\\s*(?:AM|PM))$", expand=False).fillna("").str.strip()
     df = df.drop(columns=["Date","Time"], errors="ignore")
 
-# Build calendar
+# Build ICS
 cal = Calendar()
 for _, row in df.iterrows():
     event = Event()
@@ -117,7 +116,7 @@ for _, row in df.iterrows():
             end_dt = end_dt.replace(tzinfo=LOCAL_TZ)
         event.begin = start_dt
         event.end = end_dt
-    except:
+    except Exception as e:
         continue
     cal.events.add(event)
 
@@ -140,11 +139,6 @@ output_file
         status.innerText = "Conversion complete!";
     } catch (err) {
         status.innerText = "Error: " + err;
+        console.error(err);
     }
 }
-</script>
-
-<input type="file" id="excelInput" accept=".xlsx,.xls">
-<button onclick="runPython()">Convert</button>
-<p id="status"></p>
-<a id="downloadLink" style="display:none">Download ICS</a>
