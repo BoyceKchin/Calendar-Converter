@@ -1,35 +1,35 @@
+<script type="module">
 let pyodide;
 
 async function initPyodide() {
     pyodide = await loadPyodide();
     await pyodide.loadPackage("pandas");
+    await pyodide.loadPackage("openpyxl"); // Needed for Excel
     await pyodide.loadPackage("micropip");
     await pyodide.runPythonAsync(`
-    import micropip
-    await micropip.install("ics")
-    `);
-    await pyodide.runPythonAsync(`
-    import micropip
-    await micropip.install("pytz")
+        import micropip
+        await micropip.install("ics")
+        await micropip.install("pytz")
     `);
 }
 initPyodide();
 
 async function runPython() {
-    const fileInput = document.getElementById("csvInput");
+    const fileInput = document.getElementById("excelInput");
     const status = document.getElementById("status");
     const downloadLink = document.getElementById("downloadLink");
 
     if (!fileInput.files.length) {
-        alert("Please select a CSV file!");
+        alert("Please select an Excel file!");
         return;
     }
 
     const file = fileInput.files[0];
-    const text = await file.text();
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
 
-    // Write the file to Pyodide virtual FS
-    pyodide.FS.writeFile(file.name, text);
+    // Write Excel binary file to Pyodide FS
+    pyodide.FS.writeFile(file.name, uint8Array);
 
     status.innerText = "Processing...";
 
@@ -42,32 +42,36 @@ from datetime import datetime
 
 LOCAL_TZ = pytz.timezone("America/New_York")
 
-dt = datetime(2025, 9, 25, 12, 0)
-dt = LOCAL_TZ.localize(dt)
-
 input_file = "${file.name}"
-output_file = input_file.replace(".csv", ".ics")
+output_file = input_file.replace(".xlsx", ".ics").replace(".xls", ".ics")
 
-df = pd.read_csv(input_file, skiprows=3)
+# Read Excel file (keep skiprows=3)
+df = pd.read_excel(input_file, engine="openpyxl", skiprows=3)
 df.columns = df.columns.str.strip()
 
+# Drop unnecessary columns
 cols_to_drop = ["B","D","E","F","G","K","M","N","O","P","Q","R"]
 drop_cols = [df.columns[ord(c)-ord("A")] for c in cols_to_drop if ord(c)-ord("A")<len(df.columns)]
 df = df.drop(columns=drop_cols, errors="ignore")
 
+# Rename column L to Description (6th column after skipping)
 if len(df.columns) >=6:
     df = df.rename(columns={df.columns[5]: "Description"})
 
+# Merge Work Activity + Work Location
 if {"Work Activity", "Work Location"}.issubset(df.columns):
     df["Work Activity"] = (df["Work Activity"].fillna("").astype(str).str.strip() + " " + df["Work Location"].fillna("").astype(str).str.strip()).str.strip()
 
+# Merge Work Location + Meeting Location into Location
 if {"Work Location", "Meeting Location"}.issubset(df.columns):
     df["Location"] = (df["Work Location"].fillna("").astype(str).str.strip() + " " + df["Meeting Location"].fillna("").astype(str).str.strip()).str.strip()
     df = df.drop(columns=["Work Location","Meeting Location"])
 
+# Fill down Date column
 if "Date" in df.columns:
     df["Date"] = df["Date"].ffill()
 
+# Fix and extract time ranges
 if "Time" in df.columns:
     df = df[df["Time"].notna() & (df["Time"].astype(str).str.strip()!="")]
 
@@ -93,6 +97,7 @@ if "Time" in df.columns:
     df["End Time"] = df["Time"].str.extract(r"-\\s*(\\d+\\s*(?:AM|PM))$", expand=False).fillna("").str.strip()
     df = df.drop(columns=["Date","Time"], errors="ignore")
 
+# Build calendar
 cal = Calendar()
 for _, row in df.iterrows():
     event = Event()
@@ -124,10 +129,8 @@ output_file
 
     try {
         const outputFile = await pyodide.runPythonAsync(pyCode);
-        // Read the ICS file from Pyodide FS
         const icsData = pyodide.FS.readFile(outputFile, { encoding: "utf8" });
 
-        // Create a downloadable Blob
         const blob = new Blob([icsData], { type: "text/calendar" });
         downloadLink.href = URL.createObjectURL(blob);
         downloadLink.download = outputFile;
@@ -139,3 +142,9 @@ output_file
         status.innerText = "Error: " + err;
     }
 }
+</script>
+
+<input type="file" id="excelInput" accept=".xlsx,.xls">
+<button onclick="runPython()">Convert</button>
+<p id="status"></p>
+<a id="downloadLink" style="display:none">Download ICS</a>
