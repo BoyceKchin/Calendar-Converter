@@ -71,20 +71,28 @@ if "Date" in df.columns:
 if "Time" in df.columns:
     df = df[df["Time"].notna() & (df["Time"].astype(str).str.strip()!="")]
 
-    def fix_time_format(t):
-        t=str(t).strip()
-        t = re.sub(r"(\\d)(am|pm)", r"\\1 \\2", t, flags=re.IGNORECASE)
-        t = re.sub(r"[–—]","-",t)
-        t = re.sub(r"\\s+"," ",t)
-        match = re.match(r"^(\\d+)\\s*-\\s*(\\d+)\\s*(AM|PM)$", t, flags=re.IGNORECASE)
-        if match:
-            start,end,meridian = match.groups()
-            return f"{start} {meridian.upper()} - {end} {meridian.upper()}"
-        match = re.match(r"^(\\d+\\s*(?:AM|PM))\\s*-\\s*(\\d+\\s*(?:AM|PM))$", t, flags=re.IGNORECASE)
-        if match:
-            start,end = match.groups()
-            return f"{start.upper()} - {end.upper()}"
-        return t
+   def fix_time_format(t):
+    t = str(t).strip()
+    t = re.sub(r"[–—]", "-", t)       # normalize dash
+    t = re.sub(r"\s+", " ", t)        # collapse spaces
+
+    # Normalize cases like "10:30am-5 pm" → "10:30 am - 5 pm"
+    t = re.sub(r"(\d)(am|pm)", r"\1 \2", t, flags=re.IGNORECASE)
+    t = re.sub(r"(\d)(AM|PM)", r"\1 \2", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s*-\s*", " - ", t)
+
+    # Try to extract start and end
+    pattern = r"(?i)^\s*([0-9]{1,2}(?::[0-9]{2})?\s*(?:AM|PM))\s*-\s*([0-9]{1,2}(?::[0-9]{2})?\s*(?:AM|PM)?)\s*$"
+    m = re.match(pattern, t)
+    if m:
+        start, end = m.groups()
+        # If end is missing AM/PM, assume same as start
+        if not re.search(r"(AM|PM)$", end, re.IGNORECASE):
+            meridian = re.search(r"(AM|PM)$", start, re.IGNORECASE)
+            if meridian:
+                end += " " + meridian.group(1)
+        return f"{start.upper()} - {end.upper()}"
+    return t
 
     df["Time"] = df["Time"].apply(fix_time_format)
     df["Start Date"] = df["Date"].astype(str).str.strip()
@@ -102,8 +110,19 @@ for _, row in df.iterrows():
     start_str = f"{row['Start Date']} {row['Start Time']}"
     end_str = f"{row['End Date']} {row['End Time']}"
     try:
-        start_dt = datetime.strptime(start_str,"%m/%d/%Y %I %p")
-        end_dt = datetime.strptime(end_str,"%m/%d/%Y %I %p")
+    # Try flexible time parsing
+    def parse_time(date_str, time_str):
+        for fmt in ["%m/%d/%Y %I %p", "%m/%d/%Y %I:%M %p"]:
+            try:
+                return datetime.strptime(f"{date_str} {time_str}", fmt)
+            except ValueError:
+                continue
+        raise ValueError(f"Unrecognized time format: {time_str}")
+
+    try:
+        start_dt = parse_time(row["Start Date"], row["Start Time"])
+        end_dt = parse_time(row["End Date"], row["End Time"])
+
         if end_dt <= start_dt:
             end_dt = end_dt + pd.Timedelta(days=1)
         if start_dt.tzinfo is None:
@@ -140,3 +159,4 @@ output_file
         status.innerText = "Error: " + err;
     }
 }
+
