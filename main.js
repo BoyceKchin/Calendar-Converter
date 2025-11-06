@@ -69,40 +69,29 @@ if "Date" in df.columns:
     df["Date"] = df["Date"].ffill()
 
 if "Time" in df.columns:
-    df = df[df["Time"].notna() & (df["Time"].astype(str).str.strip() != "")]
+    df = df[df["Time"].notna() & (df["Time"].astype(str).str.strip()!="")]
 
     def fix_time_format(t):
-        t = str(t).strip()
-        # Ensure space before AM/PM
-        t = re.sub(r"(\d)(am|pm)", r"\1 \2", t, flags=re.IGNORECASE)
-        # Normalize dashes
-        t = re.sub(r"[–—]", "-", t)
-        # Remove extra spaces
-        t = re.sub(r"\s+", " ", t)
-
-        # Handle same-meridian ranges like "10:30AM - 5 PM" or "9 AM-11 AM"
-        match = re.match(
-            r"^(\d{1,2}(?::\d{2})?)\s*(AM|PM)?\s*-\s*(\d{1,2}(?::\d{2})?)\s*(AM|PM)?$",
-            t,
-            flags=re.IGNORECASE
-        )
+        t=str(t).strip()
+        t = re.sub(r"(\\d)(am|pm)", r"\\1 \\2", t, flags=re.IGNORECASE)
+        t = re.sub(r"[–—]","-",t)
+        t = re.sub(r"\\s+"," ",t)
+        match = re.match(r"^(\\d+)\\s*-\\s*(\\d+)\\s*(AM|PM)$", t, flags=re.IGNORECASE)
         if match:
-            start, mer1, end, mer2 = match.groups()
-            # If the second time has no meridian, inherit from first
-            if not mer2 and mer1:
-                mer2 = mer1
-            # Normalize everything to uppercase and space-separated
-            mer1 = mer1.upper() if mer1 else ""
-            mer2 = mer2.upper() if mer2 else ""
-            return f"{start} {mer1}".strip() + " - " + f"{end} {mer2}".strip()
-
-        # Handle clean cases like "10 AM - 5 PM"
-        match = re.match(r"^(\d+(?::\d{2})?\s*(?:AM|PM))\s*-\s*(\d+(?::\d{2})?\s*(?:AM|PM))$", t, flags=re.IGNORECASE)
+            start,end,meridian = match.groups()
+            return f"{start} {meridian.upper()} - {end} {meridian.upper()}"
+        match = re.match(r"^(\\d+\\s*(?:AM|PM))\\s*-\\s*(\\d+\\s*(?:AM|PM))$", t, flags=re.IGNORECASE)
         if match:
-            start, end = match.groups()
+            start,end = match.groups()
             return f"{start.upper()} - {end.upper()}"
-
         return t
+
+    df["Time"] = df["Time"].apply(fix_time_format)
+    df["Start Date"] = df["Date"].astype(str).str.strip()
+    df["End Date"] = df["Start Date"]
+    df["Start Time"] = df["Time"].str.extract(r"^(\\d+\\s*(?:AM|PM))", expand=False).fillna("").str.strip()
+    df["End Time"] = df["Time"].str.extract(r"-\\s*(\\d+\\s*(?:AM|PM))$", expand=False).fillna("").str.strip()
+    df = df.drop(columns=["Date","Time"], errors="ignore")
 
     df["Time"] = df["Time"].apply(fix_time_format)
     df["Start Date"] = df["Date"].astype(str).str.strip()
@@ -157,4 +146,5 @@ output_file
         status.innerText = "Error: " + err;
     }
 }
+
 
