@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Excel → ICS Converter</title>
+<title>CSV → ICS Converter</title>
 </head>
 <body>
 
-<h1>Excel → ICS Converter</h1>
+<h1>CSV → ICS Converter</h1>
 
-<input type="file" id="excelInput" accept=".xlsx">
+<input type="file" id="csvInput" accept=".csv">
 <button id="convertBtn">Convert</button>
 
 <p id="status"></p>
@@ -25,7 +25,7 @@ async function initPyodide() {
 
     await pyodide.runPythonAsync(`
 import micropip
-await micropip.install(["ics","pytz","openpyxl"])
+await micropip.install(["ics","pytz"])
 `);
 }
 initPyodide();
@@ -33,20 +33,20 @@ initPyodide();
 document.getElementById("convertBtn").addEventListener("click", runPython);
 
 async function runPython() {
-    const fileInput = document.getElementById("excelInput");
+    const fileInput = document.getElementById("csvInput");
     const status = document.getElementById("status");
     const downloadLink = document.getElementById("downloadLink");
 
     if (!fileInput.files.length) {
-        alert("Please select an Excel file!");
+        alert("Please select a CSV file!");
         return;
     }
 
     const file = fileInput.files[0];
-    const data = await file.arrayBuffer();
+    const text = await file.text();
 
     // Write the file to Pyodide FS
-    pyodide.FS.writeFile(file.name, new Uint8Array(data));
+    pyodide.FS.writeFile(file.name, text);
 
     status.innerText = "Processing...";
 
@@ -60,9 +60,9 @@ from datetime import datetime
 LOCAL_TZ = pytz.timezone("America/New_York")
 
 input_file = "${file.name}"
-output_file = input_file.replace(".xlsx", ".ics")
+output_file = input_file.replace(".csv", ".ics")
 
-df = pd.read_excel(input_file, skiprows=3)
+df = pd.read_csv(input_file, skiprows=3)
 df.columns = df.columns.str.strip()
 
 cols_to_drop = ["B","D","E","F","G","K","M","N","O","P","Q","R"]
