@@ -1,4 +1,5 @@
 let pyodide;
+let pyodideReady;
 
 async function initPyodide() {
     pyodide = await loadPyodide();
@@ -18,10 +19,12 @@ await micropip.install([
 ])
     `);
 }
-initPyodide();
+
+pyodideReady = initPyodide();
 
 
 async function runPython() {
+    await pyodideReady;
     const fileInput = document.getElementById("csvInput");
     const status = document.getElementById("status");
     const downloadLink = document.getElementById("downloadLink");
@@ -154,4 +157,5 @@ output_file
         status.innerText = "Error: " + err;
     }
 }
+
 
