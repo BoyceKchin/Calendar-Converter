@@ -1,6 +1,14 @@
 let pyodide;
 let pyodideReady = initPyodide();
 
+const convertBtn = document.getElementById("convertBtn");
+
+pyodideReady.then(() => {
+    convertBtn.disabled = false;
+    convertBtn.innerText = "Convert";
+});
+
+
 async function initPyodide() {
     pyodide = await loadPyodide();
 
@@ -156,6 +164,7 @@ output_file
         status.innerText = "Error: " + err;
     }
 }
+
 
 
 
