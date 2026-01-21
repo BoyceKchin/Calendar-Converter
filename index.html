@@ -39,7 +39,10 @@
 <body>
     <h1>CSV → ICS Converter</h1> 
     <input type="file" id="csvInput" accept=".csv"> 
-    <button onclick="runPython()">Convert</button> 
+    <button id="convertBtn" onclick="runPython()" disabled>
+    Loading Python…
+    </button>
+ 
     
     <p id="status"></p> 
     <a id="downloadLink" style="display:none">Download ICS</a>
@@ -108,6 +111,7 @@
     <script src="main.js"></script>
 </body>
 </html>
+
 
 
 
