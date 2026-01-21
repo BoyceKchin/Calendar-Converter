@@ -2,17 +2,24 @@ let pyodide;
 
 async function initPyodide() {
     pyodide = await loadPyodide();
+
     await pyodide.loadPackage("pandas");
     await pyodide.loadPackage("micropip");
 
     await pyodide.runPythonAsync(`
 import micropip
-await micropip.install("ics")
-await micropip.install("pytz")
-await micropip.install("python-dateutil")
+
+# Pin versions compatible with Python 3.11 (Pyodide)
+await micropip.install([
+    "ics==0.6.2",
+    "tatsu==5.8.3",
+    "pytz",
+    "python-dateutil",
+])
     `);
 }
 initPyodide();
+
 
 async function runPython() {
     const fileInput = document.getElementById("csvInput");
@@ -37,6 +44,7 @@ from ics import Calendar, Event
 import pytz
 from datetime import datetime
 from dateutil import parser
+
 
 LOCAL_TZ = pytz.timezone("America/New_York")
 
@@ -146,3 +154,4 @@ output_file
         status.innerText = "Error: " + err;
     }
 }
+
