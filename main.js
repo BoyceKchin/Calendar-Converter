@@ -1,5 +1,5 @@
 let pyodide;
-let pyodideReady;
+let pyodideReady = initPyodide();
 
 async function initPyodide() {
     pyodide = await loadPyodide();
@@ -20,7 +20,6 @@ await micropip.install([
     `);
 }
 
-pyodideReady = initPyodide();
 
 
 async function runPython() {
@@ -157,5 +156,6 @@ output_file
         status.innerText = "Error: " + err;
     }
 }
+
 
 
